@@ -1,23 +1,19 @@
-"""Entry point for the news-image-20261126 bounty.
+"""Entry point: build the news-image entry and verify it.
 
-Renders the front page with render.py and writes it to entry.png next
-to this file and to the output directory (MAKEFUN_OUTPUT_DIR, or
-/output by default). Exits non-zero unless both copies are
-byte-identical and 1024x1024.
-
-Usage:
-    python3 main.py
-    MAKEFUN_OUTPUT_DIR=out python3 main.py
+Saves entry.png next to this file and to MAKEFUN_OUTPUT_DIR
+(default /output), then checks both copies are byte-identical,
+exactly 1024x1024 and no larger than 1 MiB. Exits non-zero on failure.
 """
 
 import hashlib
 import os
 import sys
 
-import render
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-ENTRY = "entry.png"
+import render  # noqa: E402
+
+MAX_BYTES = 1024 * 1024
 
 
 def sha256_of(path):
@@ -28,48 +24,38 @@ def sha256_of(path):
     return h.hexdigest()
 
 
-def verify_png(path):
-    """Re-open the file and confirm it decodes as a 1024x1024 RGB PNG."""
-    from PIL import Image
-    with Image.open(path) as im:
-        im.load()
-        if im.size != (render.W, render.H) or im.mode != "RGB":
-            raise ValueError(f"{path}: bad image {im.size} {im.mode}")
-    return True
-
-
 def main():
+    here = os.path.dirname(os.path.abspath(__file__))
     out_dir = os.environ.get("MAKEFUN_OUTPUT_DIR", "/output")
     os.makedirs(out_dir, exist_ok=True)
 
-    image = render.build()
-    if image.size != (render.W, render.H):
-        print(f"bad size: {image.size}", file=sys.stderr)
+    img = render.build()
+    if img.size != (1024, 1024):
+        print(f"FAIL: image is {img.size}, expected (1024, 1024)",
+              file=sys.stderr)
         return 1
 
-    local_path = os.path.join(HERE, ENTRY)
-    image.save(local_path, "PNG")
-    out_path = os.path.join(out_dir, ENTRY)
-    image.save(out_path, "PNG")
+    local_path = os.path.join(here, "entry.png")
+    out_path = os.path.join(out_dir, "entry.png")
+    img.save(local_path)
+    img.save(out_path)
 
     local_hash = sha256_of(local_path)
     out_hash = sha256_of(out_path)
     if local_hash != out_hash:
-        print("copies differ!", file=sys.stderr)
+        print("FAIL: local and output copies differ", file=sys.stderr)
         return 1
-    verify_png(local_path)
-    verify_png(out_path)
 
     size = os.path.getsize(local_path)
-    if size > 1024 * 1024:
-        print(f"entry.png too big: {size} bytes", file=sys.stderr)
+    if size > MAX_BYTES:
+        print(f"FAIL: entry.png is {size} bytes, over 1 MiB limit",
+              file=sys.stderr)
         return 1
 
-    print(f"entry.png {image.size[0]}x{image.size[1]} "
-          f"{size} bytes sha256={local_hash}")
-    print(f"wrote {local_path} and {out_path}")
+    print(f"OK: entry.png {img.size[0]}x{img.size[1]} {size} bytes")
+    print(f"sha256: {local_hash}")
     return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())

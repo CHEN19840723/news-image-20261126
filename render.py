@@ -1,178 +1,180 @@
-"""Draw the 26 November 2026 front page (1024x1024) with Pillow.
+"""Render the front page of THE WORLD TODAY for Thursday, 26 November 2026.
 
-No network, no randomness: the same run always produces the same PNG.
-Run directly (`python3 render.py`) to write entry.png next to this file.
+Deterministic: no randomness, no clock, no network. Every value is fixed,
+so two runs produce byte-identical PNGs.
 """
 
 from PIL import Image, ImageDraw, ImageFont
 
 W, H = 1024, 1024
 
-NAVY = (22, 35, 63)
-NAVY_LIGHT = (31, 48, 84)
-RED = (178, 34, 34)
-CREAM = (247, 243, 232)
-INK = (24, 24, 24)
-GREY = (90, 90, 90)
-STRIP_BG = (232, 238, 246)
-GOLD = (232, 164, 32)
+CREAM = (247, 242, 231)
+NAVY = (20, 38, 76)
+RED = (176, 42, 48)
+GOLD = (212, 160, 40)
+LIGHT_BLUE = (140, 185, 220)
+INK = (30, 30, 30)
+GREY = (110, 110, 110)
+STRIP_BG = (220, 232, 245)
+WHITE = (255, 255, 255)
 
 SERIF = "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf"
 SANS = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
 SANS_BOLD = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
-SANS_ITALIC = "/usr/share/fonts/truetype/liberation/LiberationSans-Italic.ttf"
 
 
 def font(path, size):
     return ImageFont.truetype(path, size)
 
 
-def wrap(draw, text, fnt, max_w):
-    """Greedy word wrap; returns a list of lines that fit max_w."""
-    lines, cur = [], ""
-    for word in text.split():
-        trial = word if not cur else cur + " " + word
-        if draw.textlength(trial, font=fnt) <= max_w:
+def wrap(draw, text, fnt, max_width):
+    """Greedy word wrap; returns a list of lines that fit max_width."""
+    words = text.split()
+    lines = []
+    cur = ""
+    for w in words:
+        trial = (cur + " " + w).strip()
+        if draw.textlength(trial, font=fnt) <= max_width:
             cur = trial
         else:
             if cur:
                 lines.append(cur)
-            cur = word
+            cur = w
     if cur:
         lines.append(cur)
     return lines
 
 
-def para(draw, x, y, text, fnt, max_w, leading, color=INK):
-    """Draw a wrapped paragraph; returns the y just below the last line."""
-    for line in wrap(draw, text, fnt, max_w):
-        draw.text((x, y), line, font=fnt, fill=color)
-        y += leading
+def draw_wrapped(draw, x, y, text, fnt, color, max_width, line_h):
+    lines = wrap(draw, text, fnt, max_width)
+    for ln in lines:
+        draw.text((x, y), ln, font=fnt, fill=color)
+        y += line_h
     return y
-
-
-def draw_tariff_chart(draw, bx, by, bw, bh):
-    """Bar chart of the top proposed tariff rates, in box (bx, by, bw, bh)."""
-    draw.rectangle([bx, by, bx + bw, by + bh], fill=NAVY_LIGHT)
-    d = draw
-    # title inside chart
-    d.text((bx + 16, by + 12), "TOP PROPOSED RATES",
-           font=font(SANS_BOLD, 18), fill=(255, 255, 255))
-    base = by + bh - 52
-    bars = [("CHINA", 40, RED), ("VIETNAM", 35, GOLD), ("EU", 15, (120, 160, 210))]
-    max_h = 96
-    slot = bw // 3
-    for i, (label, rate, color) in enumerate(bars):
-        h = int(max_h * rate / 40)
-        x0 = bx + i * slot + 22
-        x1 = bx + (i + 1) * slot - 22
-        d.rectangle([x0, base - h, x1, base], fill=color)
-        d.text(((x0 + x1) // 2, base - h - 26), f"{rate}%",
-               font=font(SANS_BOLD, 22), fill=(255, 255, 255),
-               anchor="ma")
-        d.text(((x0 + x1) // 2, base + 8), label,
-               font=font(SANS_BOLD, 16), fill=(255, 255, 255),
-               anchor="ma")
-    d.line([(bx + 12, base), (bx + bw - 12, base)], fill=(255, 255, 255),
-           width=2)
 
 
 def build():
     img = Image.new("RGB", (W, H), CREAM)
     d = ImageDraw.Draw(img)
 
-    # ---- masthead ------------------------------------------------------
-    d.rectangle([0, 0, W, 110], fill=NAVY)
-    d.text((36, 30), "THE WORLD TODAY",
-           font=font(SERIF, 52), fill=(255, 255, 255))
-    d.text((988, 24), "THURSDAY", font=font(SANS_BOLD, 32),
-           fill=(255, 255, 255), anchor="ra")
-    d.text((988, 62), "26 NOVEMBER 2026", font=font(SANS_BOLD, 24),
-           fill=(200, 205, 220), anchor="ra")
-    d.rectangle([0, 110, W, 118], fill=RED)
+    # ---- Masthead -------------------------------------------------------
+    d.rectangle([0, 0, W, 96], fill=NAVY)
+    d.text((32, 22), "THE WORLD TODAY",
+           font=font(SERIF, 52), fill=WHITE)
+    f_day = font(SANS_BOLD, 24)
+    f_date = font(SANS_BOLD, 20)
+    d.text((W - 32 - d.textlength("THURSDAY", font=f_day), 20),
+           "THURSDAY", font=f_day, fill=WHITE)
+    d.text((W - 32 - d.textlength("26 NOVEMBER 2026", font=f_date), 52),
+           "26 NOVEMBER 2026", font=f_date, fill=WHITE)
+    d.rectangle([0, 96, W, 100], fill=RED)
 
-    # ---- lead story ----------------------------------------------------
-    d.text((36, 142), "LEAD  \u00b7  TRADE", font=font(SANS_BOLD, 21),
-           fill=RED)
-    d.text((36, 172), "US fires new tariff salvo",
-           font=font(SERIF, 46), fill=INK)
-    d.text((36, 224), "at 14 trading partners",
-           font=font(SERIF, 46), fill=INK)
-    lead_body = (
-        "President Trump proposed new Section 301 duties on Wednesday "
-        "to fight excess factory capacity: China capped at 20%, rising "
-        "to 40% if the trade truce unravels; the EU, Japan and South "
-        "Korea at 15%.")
-    para(d, 36, 292, lead_body, font(SANS, 23), 622, 32)
+    # ---- Lead story (left) ----------------------------------------------
+    x0 = 32
+    y = 122
+    d.text((x0, y), "LEAD · TRADE", font=font(SANS_BOLD, 20), fill=RED)
+    y += 34
+    f_head = font(SERIF, 42)
+    d.text((x0, y), "US fires new tariff salvo", font=f_head, fill=INK)
+    y += 52
+    d.text((x0, y), "at 14 trading partners", font=f_head, fill=INK)
+    y += 60
+    lead_body = ("President Trump proposed new Section 301 duties on "
+                 "Wednesday to fight excess factory capacity: China capped "
+                 "at 20%, rising to 40% if the trade truce unravels; the "
+                 "EU, Japan and South Korea at 15%.")
+    y = draw_wrapped(d, x0, y, lead_body, font(SANS, 20), INK, 600, 28)
 
-    draw_tariff_chart(d, 700, 142, 288, 216)
-    d.text((700, 368), "Proposed maximum rates, USTR",
-           font=font(SANS_ITALIC, 19), fill=(70, 80, 105))
+    # ---- Lead graphic (right): bar chart on navy panel ------------------
+    px0, py0, px1, py1 = 668, 122, 992, 388
+    d.rectangle([px0, py0, px1, py1], fill=NAVY)
+    d.text((px0 + 20, py0 + 14), "TOP PROPOSED RATES",
+           font=font(SANS_BOLD, 18), fill=WHITE)
+    bars = [
+        ("CHINA", 40, RED),
+        ("VIETNAM", 35, GOLD),
+        ("EU", 15, LIGHT_BLUE),
+    ]
+    by = py0 + 56
+    f_lab = font(SANS_BOLD, 16)
+    f_val = font(SANS_BOLD, 16)
+    for label, pct, color in bars:
+        d.text((px0 + 20, by), label, font=f_lab, fill=WHITE)
+        d.text((px1 - 20 - d.textlength(f"{pct}%", font=f_val), by),
+               f"{pct}%", font=f_val, fill=WHITE)
+        by += 26
+        bar_w = int(264 * pct / 40)
+        d.rectangle([px0 + 20, by, px0 + 20 + bar_w, by + 20], fill=color)
+        by += 36
+    d.text((px0, py1 + 10), "Proposed maximum rates, USTR",
+           font=font(SANS, 15), fill=GREY)
 
-    d.line([(36, 442), (988, 442)], fill=(190, 180, 160), width=2)
+    # ---- Divider ----------------------------------------------------------
+    d.line([32, 452, 992, 452], fill=(190, 180, 160), width=2)
 
-    # ---- two middle stories --------------------------------------------
-    col_y = 462
-    d.text((36, col_y), "UKRAINE  \u00b7  WAR",
-           font=font(SANS_BOLD, 20), fill=RED)
-    d.text((36, col_y + 28), "Ukraine hits Russian",
-           font=font(SERIF, 30), fill=INK)
-    d.text((36, col_y + 64), "air base; Kyiv shelled",
-           font=font(SERIF, 30), fill=INK)
-    ukraine = (
-        "Kyiv said its forces struck the Savasleyka air base on "
-        "Wednesday, damaging five planes, as Russian ballistic "
-        "missiles hit the Ukrainian capital.")
-    para(d, 36, col_y + 112, ukraine, font(SANS, 21), 448, 30)
+    # ---- Middle stories ---------------------------------------------------
+    mid_y = 472
+    col_w = 464
+    f_kick = font(SANS_BOLD, 17)
+    f_mid_head = font(SERIF, 27)
+    f_mid_body = font(SANS, 18)
 
-    d.text((520, col_y), "TECHNOLOGY  \u00b7  MICROSOFT",
-           font=font(SANS_BOLD, 20), fill=RED)
-    d.text((520, col_y + 28), "Microsoft declares",
-           font=font(SERIF, 30), fill=INK)
-    d.text((520, col_y + 64), "\u201cCode Red\u201d after outage",
-           font=font(SERIF, 30), fill=INK)
-    msft = (
-        "After a 24-hour outage on 12\u201313 November, Microsoft put "
-        "reliability ahead of new features, internal memos seen by "
-        "Reuters show.")
-    para(d, 520, col_y + 118, msft, font(SANS, 22), 468, 31)
+    # Left: Ukraine
+    mx = 32
+    d.text((mx, mid_y), "UKRAINE · WAR", font=f_kick, fill=RED)
+    d.text((mx, mid_y + 28), "Ukraine hits Russian", font=f_mid_head, fill=INK)
+    d.text((mx, mid_y + 64), "air base; Kyiv shelled", font=f_mid_head, fill=INK)
+    draw_wrapped(d, mx, mid_y + 106,
+                 "Kyiv said its forces struck the Savasleyka air base on "
+                 "Wednesday, damaging five planes, as Russian ballistic "
+                 "missiles hit the Ukrainian capital.",
+                 f_mid_body, INK, col_w, 25)
 
-    d.line([(36, 706), (988, 706)], fill=(190, 180, 160), width=2)
+    # Right: Microsoft
+    mx = 528
+    d.text((mx, mid_y), "TECHNOLOGY · MICROSOFT", font=f_kick, fill=RED)
+    d.text((mx, mid_y + 28), "Microsoft declares 'Code Red'", font=f_mid_head, fill=INK)
+    d.text((mx, mid_y + 64), "after outage", font=f_mid_head, fill=INK)
+    draw_wrapped(d, mx, mid_y + 106,
+                 "After a 24-hour outage on 12–13 November, Microsoft put "
+                 "reliability ahead of new features, internal memos seen "
+                 "by Reuters show.",
+                 f_mid_body, INK, col_w, 25)
 
-    # ---- Colombia strip --------------------------------------------------
-    d.rectangle([36, 724, 988, 838], fill=STRIP_BG)
-    d.rectangle([36, 724, 50, 838], fill=RED)
-    d.text((70, 738), "COLOMBIA  \u00b7  WEDNESDAY",
-           font=font(SANS_BOLD, 20), fill=RED)
-    d.text((70, 766), "All hostages freed in Cartagena siege",
-           font=font(SERIF, 30), fill=INK)
-    strip_body = (
-        "Special forces stormed a supermarket after a 17-hour siege, "
-        "freeing the last 20 hostages; one gunman was killed.")
-    para(d, 70, 806, strip_body, font(SANS, 19), 900, 26)
+    d.line([32, 700, 992, 700], fill=(190, 180, 160), width=2)
 
-    # ---- ticker ----------------------------------------------------------
-    d.rectangle([0, 856, W, 972], fill=NAVY)
-    ticker = (
-        "Egypt highway fire kills 30 \u00b7 Sudan drone strikes kill "
-        "19 civilians \u00b7 Poland plans no-fly zone on Ukraine "
-        "border \u00b7 BBC appeals Trump $10bn suit \u00b7 Lebanon to "
-        "open second airport \u00b7 US jobless claims fall \u00b7 "
-        "SpaceX cleared for 1m satellites")
-    para(d, 28, 864, ticker, font(SANS_BOLD, 19), 968, 27,
-         color=(255, 255, 255))
+    # ---- Colombia strip ---------------------------------------------------
+    sy0, sy1 = 720, 828
+    d.rectangle([32, sy0, 992, sy1], fill=STRIP_BG)
+    d.rectangle([32, sy0, 44, sy1], fill=RED)
+    d.text((64, sy0 + 10), "COLOMBIA · WEDNESDAY",
+           font=font(SANS_BOLD, 17), fill=RED)
+    d.text((64, sy0 + 34), "All hostages freed in Cartagena siege",
+           font=font(SERIF, 27), fill=INK)
+    draw_wrapped(d, 64, sy0 + 72,
+                 "Special forces stormed a supermarket after a 17-hour "
+                 "siege, freeing the last 20 hostages; one gunman was "
+                 "killed.",
+                 font(SANS, 18), INK, 900, 24)
 
-    # ---- footer ----------------------------------------------------------
-    d.text((36, 986),
-           "Stories verified against Reuters, Colombia Reports and "
-           "Zotpaper  \u00b7  Thursday, 26 November 2026",
-           font=font(SANS, 17), fill=GREY)
+    # ---- Ticker band ------------------------------------------------------
+    ty0, ty1 = 856, 940
+    d.rectangle([0, ty0, W, ty1], fill=NAVY)
+    ticker = ("Egypt highway fire kills 30 · Sudan drone strikes kill 19 "
+              "civilians · Poland plans no-fly zone on Ukraine border · "
+              "BBC appeals Trump $10bn suit · Lebanon to open second "
+              "airport · US jobless claims fall · SpaceX cleared for 1m "
+              "satellites")
+    draw_wrapped(d, 32, ty0 + 12, ticker, font(SANS_BOLD, 19), WHITE, 960, 27)
+
+    # ---- Footer -----------------------------------------------------------
+    d.text((32, 962),
+           "Stories verified against Reuters, Colombia Reports and Zotpaper "
+           "· Thursday, 26 November 2026",
+           font=font(SANS, 15), fill=GREY)
+
     return img
 
 
 if __name__ == "__main__":
-    import os
-    out = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                       "entry.png")
-    build().save(out, "PNG")
-    print("wrote", out)
+    build().save("entry.png")
